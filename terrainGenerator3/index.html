@@ -1,0 +1,1044 @@
+<html>
+    <head>
+	    <link rel="icon" href="resources/icon.png">
+    </head>
+	<style>
+		body {
+			overflow: hidden;
+			margin:0px;
+			font-family: Arial, Helvetica, sans-serif;
+		}
+
+        #regenerate{
+			position:absolute;
+			left:50px;
+			top:40px;
+			width:300px;
+			height:90%;
+			font-size: 10;
+		}
+
+		input{
+			font-size: 11;
+			width:45px;
+			font-size: 10;
+		}
+	</style>
+	<script src="./three-scripts.js"></script>
+	<title>
+		Terrain Generation 3.0
+	</title>
+    <body>
+	    <div id="regenerate">
+            <center>
+                Customize <br><br><br>
+            </center>
+
+            Size: <input type="text" id="size" value = "100"><br><br>
+            Segments: <input type="text" id="segments" value = "100"><br><br>
+            Hilliness: <input type="text" id="hilliness" value = "45"><br><br>
+            Smooth Iterations: <input type="text" id="smoothIterations" value = "2"><br><br>
+            Smooth Amount: <input type="text" id="smoothAmount" value = "0.8"><br><br>
+            Bumpiness: <input type="text" id="bumpiness" value = "0.025"><br><br>
+            Land Elavation: <input type="text" id="elavation" value = "10"><br><br>
+            Wireframe: <input type="checkbox" id="wireframe" style="position:relative;bottom:-3;left:-12"><br><br>
+            Show Water & Earth: <input type="checkbox" id="showWater" checked="true" style="position:relative;bottom:-3;left:-12"><br><br>
+            Ground & Water Textures: <input type="checkbox" id="groundTexture" checked="true" style="position:relative;bottom:-3;left:-12"><br><br>
+            Water Depth: <input type="text" id="waterDepth" value = "20"><br><br>
+            Floor At: <input type="text" id="floorAt" value = "-15"> Floor at <input type="text" id="floorPercent" style="width:28px"value = "100">% <input type="checkbox" id="floor" checked="true" style="position:relative;bottom:-3;left:-12"><br><br>
+            Cap at: <input type="text" id="capAt" value = "100"> Cap at <input type="text" id="capPercent" style="width:28px"value = "20">% <input type="checkbox" id="cap" style="position:relative;bottom:-3;left:-12"> <br><br>
+            Color: <input type="text" id="color" value = "44EE44" oninput="setColorButton()" maxlength="6" style="width:55px"><input style="position:relative;bottom:-3;left:-12"type="checkbox" id="colorLock"><br><br><br>
+      
+            <center>
+                <input type="button" value="Regenerate" style="width:100px" onclick="regenerate()"></input><br><br><br>
+                World Size<br><br><br>
+                <input type="button" value="Small" style="width:50px" onclick="setAttributeSmall()"></input>
+                <input type="button" value="Medium" style="width:50px" onclick="setAttributeMedium()"></input>
+                <input type="button" value="Large" style="width:50px" onclick="setAttributeLarge()"></input>
+                <input type="button" value="Huge" style="width:50px" onclick="setAttributeHuge()"></input><br><br><br>
+            </center>
+        
+            <center>
+                World Detail<br><br><br>
+                <input type="button" value="Poly" style="width:50px" onclick="setAttributePolyDetail()"></input>
+                <input type="button" value="Low" style="width:50px" onclick="setAttributeLowDetail()"></input>
+                <input type="button" value="Medium" style="width:50px" onclick="setAttributeMediumDetail()"></input>
+                <input type="button" value="High" style="width:50px" onclick="setAttributeHighDetail()"></input><br><br><br>
+            </center>
+
+            <center>
+                World Presets<br><br><br>
+                <input type="button" value="Default" style="width:60px" onclick="setAttributeDefault()"></input>
+                <input type="button" value="Foothills" style="width:60px" onclick="setAttributeFoothills()"></input>
+                <input type="button" value="Hills" style="width:60px" onclick="setAttributeHills()"></input><br><br>
+                <input type="button" value="Extreme Hills" style="width:60px" onclick="setAttributeExtremeHills()"></input>
+                <input type="button" value="Plains" style="width:60px" onclick="setAttributePlains()"></input>
+                <input type="button" value="Mountains" style="width:60px" onclick="setAttributeMountains()"></input><br><br>
+                <input type="button" value="Ice Spikes" style="width:60px" onclick="setAttributeIceSpikes()"></input>
+                <input type="button" value="Mesa" style="width:60px" onclick="setAttributeMesa()"></input>
+                <input type="button" value="Craters" style="width:60px" onclick="setAttributeCrater()"></input><br><br>
+                <input type="button" value="Rocky" style="width:60px" onclick="setAttributeRocky()"></input>
+                <input type="button" value="Sandbar" style="width:60px" onclick="setAttributeSandbar()"></input>
+                <input type="button" value="Random" style="width:60px" onclick="setAttributeRandom()"></input><br><br><br>
+                Export To Console<br><br><br>
+                <input type="button" value="Export as 2D Array" style="width:120px" onclick="exportAsArray()"></input>
+                <input type="button" value="Export as 3.JS Object" style="width:120px" onclick="exportAsThreeJS()"></input>
+            </center>    
+        </div>
+    </body>
+	<script>
+		importScripts();
+
+		var scene = new THREE.Scene();
+		scene.background = new THREE.Color( 0xffffff );
+		var camera = new THREE.PerspectiveCamera( 10, window.innerWidth/window.innerHeight, 0.1, 20000 );
+		//(fov, aspectRatio, near, far)
+			camera.position.set( 400, 400, 400 );	//set camera position
+			camera.updateProjectionMatrix();
+		var renderer = new THREE.WebGLRenderer({logarithmicDepthBuffer: true});
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+		controls = new THREE.OrbitControls(camera, renderer.domElement);
+		controls.enableKeys = false;
+		controls.update();
+
+		function createLight(sunIntensity, sunPositionX, sunPositionY, sunPositionZ){
+			var spotlight = new THREE.SpotLight(0xffffff);
+			spotlight.position.set(sunPositionX, sunPositionY, sunPositionZ);
+			spotlight.castShadow = true;
+			spotlight.shadow = new THREE.LightShadow(new THREE.OrthographicCamera(110, 1, 200, 2000));
+			spotlight.shadow.mapSize.width = 1024;
+			spotlight.shadow.mapSize.height = 1024;
+			spotlight.intensity = sunIntensity/10;
+			scene.add(spotlight);
+
+			var light = new THREE.SpotLight(0xffffff);
+			light.position.set(0, 1000, 0);
+			light.castShadow = true;
+			light.shadow = new THREE.LightShadow(new THREE.OrthographicCamera(110, 1, 200, 2000));
+			light.shadow.mapSize.width = 1024;
+			light.shadow.mapSize.height = 1024;
+			light.intensity = sunIntensity/17;
+			scene.add(light);
+		}
+
+        var arrayToPrint;
+        var threeJSToPrint;
+
+        function createTerrain(size, segments, hilliness, smoothIterations, smoothAmount, bumpiness, wireframe, color, showWater, depth, elavation, waterDepth, floor, cap, capAt, capPercent, floorAt, floorPercent, groundTexture){
+            
+            var geometryArray = diamondSquare(segments, segments, hilliness) // create terrain
+            geometryArray = smoothing(geometryArray, smoothIterations, smoothAmount, nextPowerOfTwo(Math.max(segments, segments))); // smooth terrain
+            geometryArray = bumpMap(geometryArray, bumpiness); // bump terrain
+            geometryArray = elavateTerrain(geometryArray, elavation) // elavate terrain
+            if(floor){
+                geometryArray = floorTerrain(geometryArray, floorAt, floorPercent)// floor terrain 
+            }
+            if(cap){
+                geometryArray = capTerrain(geometryArray, capAt, capPercent)// cap terrain
+            }
+            
+            arrayToPrint = geometryArray;
+
+            var dirt = geometryArray.map(value => value.slice(0));
+
+            makeEarth(dirt, size, segments, showWater, waterDepth, groundTexture);
+            makeEarth2(dirt, size, segments, showWater, waterDepth, groundTexture);
+            var consoleString = "";
+
+            var geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+            for(var i = 0; i < geometry.vertices.length; i++){ // moving the values from geometryArray to each index of geometry
+                geometry.vertices[i].z = geometryArray[i % (segments + 1)][Math.floor(i/(segments + 1))];
+            }
+
+            for(var i = 0; i < geometry.vertices.length; i++){
+                consoleString = consoleString + "geometry.vertices[" + i + "] = " + geometry.vertices[i].z + "; \n"
+            }
+
+            threeJSToPrint = "var geometry = new THREE.PlaneGeometry(" + SIZE + ", " + SIZE + ", " + HILLINESS + ") \n \n" + consoleString + "\n \nvar material = new THREE.MeshPhongMaterial( { color: 0x" + color + ", wireframe:" + wireframe + "} ); \n \nvar terrain = new THREE.Mesh( geometry, material );\n\nscene.add( terrain ); \n \nterrain.material.side = THREE.DoubleSide;\n\nterrain.rotation.x =  -(Math.PI/2);";
+
+            var texture = new THREE.TextureLoader().load( "resources/texture.png" );
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set( size/25 , size/25 );
+
+            if(groundTexture){
+                if(wireframe){
+				var material = new THREE.MeshPhongMaterial( { color: "#" + color, wireframe:wireframe, map: texture, reflectivity: 0.5} );
+			} else {
+				var material = new THREE.MeshPhongMaterial( { color: "#" + color, wireframe:wireframe, shading: THREE.FlatShading, map: texture, reflectivity: 0.5 } );
+			}
+            } else {
+                if(wireframe){
+				var material = new THREE.MeshPhongMaterial( { color: "#" + color, wireframe:wireframe} );
+			} else {
+				var material = new THREE.MeshPhongMaterial( { color: "#" + color, wireframe:wireframe, shading: THREE.FlatShading} );
+			}
+            }
+
+            var terrain = new THREE.Mesh( geometry, material );
+                scene.add( terrain );
+            terrain.material.side = THREE.DoubleSide;
+            terrain.rotation.x =  -(Math.PI/2);
+
+            createWater(size, size, depth, showWater, groundTexture, size)
+
+        }
+
+        function capTerrain(geometryArray, capAt, capPercent){
+            for(var x = 0; x < geometryArray.length; x++){
+                for(var y = 0; y < geometryArray[x].length; y++){
+                    if(geometryArray[x][y] > capAt){
+                        var amount = geometryArray[x][y] - capAt;
+                        var percent = capPercent/100;
+                        geometryArray[x][y] = geometryArray[x][y] - (amount * percent);
+                    }
+                }
+            }
+            return(geometryArray)
+        }
+
+        function floorTerrain(geometryArray, floorAt, floorPercent){
+            for(var x = 0; x < geometryArray.length; x++){
+                for(var y = 0; y < geometryArray[x].length; y++){
+                    if(geometryArray[x][y] < floorAt){
+                        var amount = floorAt - geometryArray[x][y];
+                        var percent = floorPercent / 100;
+                        geometryArray[x][y] = geometryArray[x][y] + (amount * percent);
+                    }
+                }
+            }
+            return(geometryArray)
+        }
+
+        function makeEarth(dirt, size, segments, showWater, waterDepth, groundTexture){
+
+            var texture = new THREE.TextureLoader().load( "resources/rock.png" );
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set( size/65, size/3 );
+
+            var dirtArray = dirt;
+            var geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+            for(var x = 0; x < dirtArray.length; x++){
+                for(var y = 0; y < dirtArray[x].length; y++){
+                    if(x === 1 && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(x === (segments - 1) && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === 1  && x !== 0 && x !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === (segments - 1)  && x !== 0 && x !== segments)
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                }
+            }
+
+            for(var i = 0; i < geometry.vertices.length; i++){ 
+                geometry.vertices[i].z = dirtArray[i % (segments + 1)][Math.floor(i/(segments + 1))];
+                if(i <= ((segments + 1) * 2)){
+                    geometry.vertices[i].y = size/2 + (size/1000);
+                } else if(i > ((segments + 1) * (segments + 1)) - ((segments + 1) * 2)){
+                    geometry.vertices[i].y = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === 1){
+                    geometry.vertices[i].x = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === segments - 1){
+                    geometry.vertices[i].x = (size/2) + (size/1000);
+                }
+                geometry.vertices[1 + (segments + 1)].y = size/2 + (size/1000);
+                geometry.vertices[1 + (segments + 1)].x = -size/2 - (size/1000);
+
+                geometry.vertices[((segments + 1) * 2) - 2].y = size/2 + (size/1000);
+                geometry.vertices[((segments + 1) * 2) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - 2].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].x = -size/2 - (size/1000);             
+            }
+            if(groundTexture){
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false, map: texture, reflectivity: 0.5 } );
+            } else {
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false} );
+            }
+            
+			var earth = new THREE.Mesh( geometry, material );
+            scene.add( earth );
+            earth.material.side = THREE.DoubleSide;
+            earth.rotation.x =  -(Math.PI/2);
+
+            if(showWater){
+				earth.visible = true;
+			} else {
+				earth.visible = false;
+			}
+        }
+
+        function makeEarth(dirt, size, segments, showWater, waterDepth, groundTexture){
+
+            var texture = new THREE.TextureLoader().load( "resources/rock.png" );
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set( size/65, size/3 );
+
+            var dirtArray = dirt;
+            var geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+            for(var x = 0; x < dirtArray.length; x++){
+                for(var y = 0; y < dirtArray[x].length; y++){
+                    if(x === 1 && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(x === (segments - 1) && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === 1  && x !== 0 && x !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === (segments - 1)  && x !== 0 && x !== segments)
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                }
+            }
+
+            for(var i = 0; i < geometry.vertices.length; i++){ 
+                geometry.vertices[i].z = dirtArray[i % (segments + 1)][Math.floor(i/(segments + 1))];
+                if(i <= ((segments + 1) * 2)){
+                    geometry.vertices[i].y = size/2 + (size/1000);
+                } else if(i > ((segments + 1) * (segments + 1)) - ((segments + 1) * 2)){
+                    geometry.vertices[i].y = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === 1){
+                    geometry.vertices[i].x = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === segments - 1){
+                    geometry.vertices[i].x = (size/2) + (size/1000);
+                }
+                geometry.vertices[1 + (segments + 1)].y = size/2 + (size/1000);
+                geometry.vertices[1 + (segments + 1)].x = -size/2 - (size/1000);
+
+                geometry.vertices[((segments + 1) * 2) - 2].y = size/2 + (size/1000);
+                geometry.vertices[((segments + 1) * 2) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - 2].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].x = -size/2 - (size/1000);             
+            }
+            if(groundTexture){
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false, map: texture, reflectivity: 0.5 } );
+            } else {
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false} );
+            }
+            
+			var earth = new THREE.Mesh( geometry, material );
+            scene.add( earth );
+            earth.material.side = THREE.DoubleSide;
+            earth.rotation.x =  -(Math.PI/2);
+
+            if(showWater){
+				earth.visible = true;
+			} else {
+				earth.visible = false;
+			}
+        }
+
+        function makeEarth(dirt, size, segments, showWater, waterDepth, groundTexture){
+
+            var texture = new THREE.TextureLoader().load( "resources/rock.png" );
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set( size/65, size/3 );
+
+            var dirtArray = dirt;
+            var geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+            for(var x = 0; x < dirtArray.length; x++){
+                for(var y = 0; y < dirtArray[x].length; y++){
+                    if(x === 1 && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(x === (segments - 1) && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === 1  && x !== 0 && x !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === (segments - 1)  && x !== 0 && x !== segments)
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                }
+            }
+
+            for(var i = 0; i < geometry.vertices.length; i++){ 
+                geometry.vertices[i].z = dirtArray[i % (segments + 1)][Math.floor(i/(segments + 1))];
+                if(i <= ((segments + 1) * 2)){
+                    geometry.vertices[i].y = size/2 + (size/1000);
+                } else if(i > ((segments + 1) * (segments + 1)) - ((segments + 1) * 2)){
+                    geometry.vertices[i].y = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === 1){
+                    geometry.vertices[i].x = -(size/2) - (size/1000);
+                } else if(i % (segments + 1) === segments - 1){
+                    geometry.vertices[i].x = (size/2) + (size/1000);
+                }
+                geometry.vertices[1 + (segments + 1)].y = size/2 + (size/1000);
+                geometry.vertices[1 + (segments + 1)].x = -size/2 - (size/1000);
+
+                geometry.vertices[((segments + 1) * 2) - 2].y = size/2 + (size/1000);
+                geometry.vertices[((segments + 1) * 2) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - 2].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].x = -size/2 - (size/1000);             
+            }
+            if(groundTexture){
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false, map: texture, reflectivity: 0.5 } );
+            } else {
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false} );
+            }
+            
+			var earth = new THREE.Mesh( geometry, material );
+            scene.add( earth );
+            earth.material.side = THREE.DoubleSide;
+            earth.rotation.x =  -(Math.PI/2);
+
+            if(showWater){
+				earth.visible = true;
+			} else {
+				earth.visible = false;
+			}
+        }
+
+        function makeEarth2(dirt, size, segments, showWater, waterDepth, groundTexture){
+
+            var texture = new THREE.TextureLoader().load( "resources/rock.png" );
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set( size/3, size/65 );
+
+            var dirtArray = dirt;
+            var geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+            for(var x = 0; x < dirtArray.length; x++){
+                for(var y = 0; y < dirtArray[x].length; y++){
+                    if(x === 1 && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(x === (segments - 1) && y !== 0 && y !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === 1  && x !== 0 && x !== segments){
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                    } else if(y === (segments - 1)  && x !== 0 && x !== segments)
+                        dirtArray[x][y] = 0 - (waterDepth - 3);
+                }
+            }
+
+            for(var i = 0; i < geometry.vertices.length; i++){ 
+                geometry.vertices[i].z = dirtArray[i % (segments + 1)][Math.floor(i/(segments + 1))];
+                if(i <= ((segments + 1) * 2)){//first
+                    geometry.vertices[i].y = size/2 + (size/1100);
+                } else if(i > ((segments + 1) * (segments + 1)) - ((segments + 1) * 2)){ // last
+                    geometry.vertices[i].y = -(size/2) - (size/1100);
+                } else if(i % (segments + 1) === 1){
+                    geometry.vertices[i].x = -(size/2) - (size/900);
+                } else if(i % (segments + 1) === segments - 1){
+                    geometry.vertices[i].x = (size/2) + (size/900);
+                }
+                geometry.vertices[1 + (segments + 1)].y = size/2 + (size/1000);
+                geometry.vertices[1 + (segments + 1)].x = -size/2 - (size/1000);
+
+                geometry.vertices[((segments + 1) * 2) - 2].y = size/2 + (size/1000);
+                geometry.vertices[((segments + 1) * 2) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - 2].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - 2].x = size/2 + (size/1000);
+
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].y = -size/2 - (size/1000);
+                geometry.vertices[segments * (segments + 1) - (segments + 1) + 1].x = -size/2 - (size/1000);             
+            }
+            if(groundTexture){
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false, map: texture, reflectivity: 0.5 } );
+            } else {
+                var material = new THREE.MeshBasicMaterial( { color: 0x70483c, wireframe:false} );
+            }
+
+            var earth = new THREE.Mesh( geometry, material );
+            scene.add( earth );
+            earth.material.side = THREE.DoubleSide;
+            earth.rotation.x =  -(Math.PI/2);
+
+            if(showWater){
+                earth.visible = true;
+            } else {
+                earth.visible = false;
+            }
+        }
+
+        var clock = new THREE.Clock();
+        var wave;
+
+        function createWater(width, length, depth, showWater, groundTexture, size){
+            var texture = new THREE.TextureLoader().load( "resources/newWater.png" );
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set( 0.1,0.1 );
+
+            wave = new TextureAnimator( texture, 3, 12, 36, 120, size ); // texture, #horiz, #vert, #total, duration.
+			var geometry = new THREE.CubeGeometry(width, depth, length);
+
+            if(groundTexture){
+			    var material = new THREE.MeshBasicMaterial( { color: 0x73B6Fe, wireframe:false, transparent: true, map: texture, reflectivity: 0.5} );
+            } else {
+                var material = new THREE.MeshBasicMaterial( { color: 0x73B6Fe, wireframe:false, transparent: true} );
+            }
+
+            var water = new THREE.Mesh( geometry, material );
+            material.opacity = 0.7;
+
+			if(showWater){
+				water.visible = true;
+			} else {
+				water.visible = false;
+			}
+
+			scene.add( water );
+			water.position.y = water.position.y - 7;
+        }
+
+        function TextureAnimator(texture, tilesHoriz, tilesVert, numTiles, tileDispDuration, size){			
+	        this.tilesHorizontal = tilesHoriz;
+	        this.tilesVertical = tilesVert;
+	        this.numberOfTiles = numTiles;
+	        texture.wrapS = texture.wrapT = THREE.RepeatWrapping; 
+	        texture.repeat.set( (size/33) / this.tilesHorizontal, (size/33) / this.tilesVertical );
+
+            this.tileDisplayDuration = tileDispDuration;
+        	this.currentDisplayTime = 0;
+        	this.currentTile = 0;
+		
+	        this.update = function( milliSec ){
+		        this.currentDisplayTime += milliSec;
+		        while (this.currentDisplayTime > this.tileDisplayDuration){
+			        this.currentDisplayTime -= this.tileDisplayDuration;
+			        this.currentTile++;
+			        if (this.currentTile == this.numberOfTiles)
+				        this.currentTile = 0;
+			            var currentColumn = this.currentTile % this.tilesHorizontal;
+			            texture.offset.x = currentColumn / this.tilesHorizontal;
+			            var currentRow = Math.floor( this.currentTile / this.tilesHorizontal );
+			            texture.offset.y = currentRow / this.tilesVertical;
+		            }
+	            };
+            }		
+        
+        function elavateTerrain(geometryArray, elavation){
+            for(var x = 0; x < geometryArray.length; x++){
+                for(var y = 0; y < geometryArray[x].length; y++){
+                    geometryArray[x][y] = geometryArray[x][y] + elavation
+                }
+            }
+            return(geometryArray)
+        }
+
+        function smoothing(geometryArray, smoothIterations, smoothAmount, segments){
+            var oldPercent = 1 - smoothAmount;
+			var newPercent = smoothAmount;
+            for(var i = 0; i < smoothIterations; i++){
+                for(var x = 0; x < geometryArray.length; x++){
+                    for(var y = 0; y < geometryArray[x].length; y++){
+                        if(x === 0 && y === 0){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x][y + 1]) + (geometryArray[x + 1][y + 1]) + (geometryArray[x + 1][y]) )/3) * newPercent)
+                        } else if(x === segments && y === segments){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x][y - 1]) + (geometryArray[x - 1][y - 1]) + (geometryArray[x - 1][y]) )/3) * newPercent)
+                        } else if(x === 0 && y === segments){
+                            geometryArray[x][y] = (geometryArray[x + 1][y] * oldPercent) + ((((geometryArray[x + 1][y - 1]) + (geometryArray[x][y - 1]) + (geometryArray[x][y]) )/3) * newPercent)
+                        } else if(x === segments && y === 0){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x][y + 1]) + (geometryArray[x - 1][y + 1]) + (geometryArray[x - 1][y]) )/3) * newPercent)
+                        } else if(x <= segments && y === 0){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x - 1][y + 1]) + (geometryArray[x][y + 1]) + (geometryArray[x + 1][y + 1]) + (geometryArray[x + 1][y]) + (geometryArray[x - 1][y]))/5) * newPercent)
+                        } else if(x === segments){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x - 1][y + 1]) + (geometryArray[x][y + 1]) + (geometryArray[x][y - 1]) + (geometryArray[x - 1][y - 1]) + (geometryArray[x - 1][y]))/5) * newPercent)
+                        } else if(x === 0){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x][y + 1]) + (geometryArray[x + 1][y + 1]) + (geometryArray[x + 1][y]) + (geometryArray[x + 1][y - 1]) + (geometryArray[x][y - 1]))/5) * newPercent)
+                        } else if(y === segments){
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x + 1][y]) + (geometryArray[x + 1][y - 1]) + (geometryArray[x][y - 1]) + (geometryArray[x - 1][y - 1]) + (geometryArray[x - 1][y]))/5) * newPercent)
+                        } else {
+                            geometryArray[x][y] = (geometryArray[x][y] * oldPercent) + ((((geometryArray[x - 1][y + 1]) + (geometryArray[x][y + 1]) + (geometryArray[x + 1][y + 1]) + (geometryArray[x + 1][y]) + (geometryArray[x + 1][y - 1]) + (geometryArray[x][y - 1]) + (geometryArray[x - 1][y - 1]) + (geometryArray[x - 1][y]))/8) * newPercent)
+                        }
+                    }
+                }
+            }
+            return(geometryArray)
+        }
+
+        function bumpMap(geometryArray, bumpiness){
+            for(var i = 0; i < geometryArray.length; i++){
+                for(var x = 0; x < geometryArray[i].length; x++){
+                    geometryArray[i][x] = geometryArray[i][x] + (Math.random() * bumpiness) - (bumpiness / 2) 
+                }
+            }
+            return(geometryArray)
+        }
+
+        function setColorButton(){
+			if(document.getElementById("color").value.length > 5){
+				document.getElementById("color").style.background = "#" + document.getElementById("color").value;
+				document.getElementById("color").value = document.getElementById("color").value.toUpperCase();
+			} else {
+				document.getElementById("color").style.background = "#ffffff";
+			}
+        }
+
+        setColorButton();
+
+        function nextPowerOfTwo(value) {
+            value--;
+            value |= value >> 1;
+            value |= value >> 2;
+            value |= value >> 4;
+            value |= value >> 8;
+            value |= value >> 16;
+            value++;
+            return value;
+        }
+    
+        function diamondSquare(w, h, hilliness) {
+            var segments = nextPowerOfTwo(Math.max(w, h) + 1);
+    
+            var size = segments + 1,
+            heightmap = [],
+            smoothing = hilliness, // max height - min height
+            i,
+            j,
+            xl = w + 1,
+            yl = h + 1;
+            for (i = 0; i <= segments; i++) {
+                heightmap[i] = new Float64Array(segments + 1);
+            }
+    
+            for (var l = segments; l >= 2; l /= 2) {
+                var half = Math.round(l * 0.5),
+                 whole = Math.round(l),
+                x,
+                y,
+                avg,
+                d,
+                e;
+                smoothing /= 2;
+                // square
+                for (x = 0; x < segments; x += whole) {
+                    for (y = 0; y < segments; y += whole) {
+                        d = Math.random() * smoothing * 2 - smoothing;
+                        avg = heightmap[x][y] + // top left
+                        heightmap[x + whole][y] + // top right
+                        heightmap[x][y + whole] + // bottom left
+                        heightmap[x + whole][y + whole]; // bottom right
+                        avg *= 0.25;
+                        heightmap[x + half][y + half] = avg + d;
+                    }
+                }  
+                // diamond
+                for (x = 0; x < segments; x += half) {
+                    for (y = (x + half) % l; y < segments; y += l) {
+                        d = Math.random() * smoothing * 2 - smoothing;
+                        avg = heightmap[(x - half + size) % size][y] + // middle left
+                        heightmap[(x + half) % size][y] + // middle right
+                        heightmap[x][(y + half) % size] + // middle top
+                        heightmap[x][(y - half + size) % size]; // middle bottom
+                        avg *= 0.25;
+                        avg += d;
+                        heightmap[x][y] = avg;
+                        // top and right edges
+                        if (x === 0) heightmap[segments][y] = avg;
+                        if (y === 0) heightmap[x][segments] = avg;
+                    }
+                }
+            }
+            return(heightmap)
+         }
+
+        var SIZE = 100;
+        var SEGMENTS = 200;
+        var HILLINESS = 60;
+        var SMOOTHITERATIONS = 4;
+        var SMOOTHAMOUNT = 0.8;
+        var BUMPINESS = 0.025; 
+        var WIREFRAME = false;
+        var COLOR = "00FF00";
+        var SHOWWATER = true;
+        var WATERDEPTH = 10;
+        var ELAVATION = 10;
+        var FLOOR = false;
+        var FLOORAT = 0;
+        var FLOORPERCENT = 0;
+        var CAP = false;
+        var CAPAT = 100;
+        var CAPPERCENT = 20;
+        var GROUNDTEXTURE = true;
+
+        regenerate();
+
+        function regenerate(){
+
+            SIZE = Math.max(parseInt(document.getElementById("size").value, 10), 3)
+            document.getElementById("size").value = SIZE;
+            SEGMENTS = Math.max(parseInt(document.getElementById("segments").value), 3)
+            document.getElementById("segments").value = SEGMENTS;
+            HILLINESS = parseFloat(document.getElementById("hilliness").value);
+            SMOOTHITERATIONS = parseInt(document.getElementById("smoothIterations").value, 10);
+            document.getElementById("smoothIterations").value = SMOOTHITERATIONS;
+            SMOOTHAMOUNT = Math.max(Math.min(parseFloat(document.getElementById("smoothAmount").value), 1), 0)
+            document.getElementById("smoothAmount").value = SMOOTHAMOUNT;
+            BUMPINESS = parseFloat(document.getElementById("bumpiness").value);
+            WIREFRAME = document.getElementById("wireframe").checked
+            SHOWWATER = document.getElementById("showWater").checked
+            WATERDEPTH = Math.max(parseFloat(document.getElementById("waterDepth").value), 20);
+            document.getElementById("waterDepth").value = WATERDEPTH;
+            document.getElementById("waterDepth").value = WATERDEPTH;
+            ELAVATION = parseFloat(document.getElementById("elavation").value);
+            FLOOR = document.getElementById("floor").checked
+            FLOORAT = Math.min(parseInt(document.getElementById("floorAt").value, 10), 50);
+            document.getElementById("floorAt").value = FLOORAT;
+            FLOORPERCENT = parseInt(document.getElementById("floorPercent").value)
+            CAP = document.getElementById("cap").checked
+            CAPAT = Math.max(parseInt(document.getElementById("capAt").value, 10), 5);
+            document.getElementById("capAt").value = CAPAT;
+            CAPPERCENT = parseInt(document.getElementById("capPercent").value)
+            document.getElementById("capPercent").value = CAPPERCENT
+            GROUNDTEXTURE = document.getElementById("groundTexture").checked
+            if(document.getElementById("color").value.length > 5){
+				COLOR = document.getElementById("color").value;
+			}
+
+            if(SEGMENTS > 450){
+                if(confirm("The 'Segments' variable is very high, continuing could result in your web browser crashing. Click OK to continue.")){
+                  
+                } else {
+                   return;
+                }
+            }
+
+            while(scene.children.length){
+    			scene.remove(scene.children[0]);
+			}
+
+			createTerrain(SIZE, SEGMENTS, HILLINESS, SMOOTHITERATIONS, SMOOTHAMOUNT, BUMPINESS, WIREFRAME, COLOR, SHOWWATER, WATERDEPTH, ELAVATION, WATERDEPTH, FLOOR, CAP, CAPAT, CAPPERCENT, FLOORAT, FLOORPERCENT, GROUNDTEXTURE);
+			createLight(8, 1000, 150, 1000);
+		}
+
+		var animate = function(){
+            var delta = clock.getDelta(); 
+
+	    wave.update(1000 * delta)
+			requestAnimationFrame( animate );
+			//move things around here
+			renderer.render( scene, camera );
+        };
+        
+        function setAttributePolyDetail(){
+            document.getElementById("segments").value = Math.floor(SIZE /  10);
+            regenerate();
+        }
+
+        function setAttributeLowDetail(){
+            document.getElementById("segments").value = Math.floor(SIZE /  2);
+            regenerate();
+        }
+
+        function setAttributeMediumDetail(){
+            document.getElementById("segments").value = Math.floor(SIZE);
+            regenerate();
+        }
+
+        function setAttributeHighDetail(){
+            document.getElementById("segments").value = Math.floor(SIZE * 2.5);
+            regenerate();
+        }
+
+        function setAttributeSmall(){            
+            var percentageDecrease = 25 / parseInt(document.getElementById("size").value, 10);
+            document.getElementById("size").value = 30;
+            document.getElementById("segments").value = Math.floor(percentageDecrease * document.getElementById("segments").value);
+            document.getElementById("hilliness").value = Math.floor(percentageDecrease * document.getElementById("hilliness").value);   
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeMedium(){            
+            var percentageDecrease = 100 / parseInt(document.getElementById("size").value, 10);
+            document.getElementById("size").value = 100;
+            document.getElementById("segments").value = Math.floor(percentageDecrease * document.getElementById("segments").value);
+            document.getElementById("hilliness").value = Math.floor(percentageDecrease * document.getElementById("hilliness").value);
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeLarge(){            
+            var percentageDecrease = 200 / parseInt(document.getElementById("size").value, 10);
+            document.getElementById("size").value = 200;
+            document.getElementById("segments").value = Math.floor(percentageDecrease * document.getElementById("segments").value);
+            document.getElementById("hilliness").value = Math.floor(percentageDecrease * document.getElementById("hilliness").value);
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeHuge(){            
+            var percentageDecrease = 500 / parseInt(document.getElementById("size").value, 10);
+            document.getElementById("size").value = 500;
+            document.getElementById("segments").value = Math.floor(percentageDecrease * document.getElementById("segments").value);
+            document.getElementById("hilliness").value = Math.floor(percentageDecrease * document.getElementById("hilliness").value);
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeDefault(){
+            document.getElementById("hilliness").value = 0.45 * SIZE;
+            document.getElementById("smoothIterations").value = 2;
+            document.getElementById("smoothAmount").value = 0.8;
+            document.getElementById("bumpiness").value = 0.025;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;            
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "44EE44";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeFoothills(){
+            document.getElementById("hilliness").value = 0.7 * SIZE;
+            document.getElementById("smoothIterations").value = 28;
+            document.getElementById("smoothAmount").value = 0.9;
+            document.getElementById("bumpiness").value = 0;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "44EE44";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeHills(){
+            document.getElementById("hilliness").value = 0.7 * SIZE;
+            document.getElementById("smoothIterations").value = 16;
+            document.getElementById("smoothAmount").value = 0.2;
+            document.getElementById("bumpiness").value = 0.1;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "44EE44";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeExtremeHills(){
+            document.getElementById("hilliness").value = 5 * SIZE;
+            document.getElementById("smoothIterations").value = 10;
+            document.getElementById("smoothAmount").value = 1;
+            document.getElementById("bumpiness").value = 0.35;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "44EE44";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributePlains(){
+            document.getElementById("hilliness").value = 0.45 * SIZE;
+            document.getElementById("smoothIterations").value = 150;
+            document.getElementById("smoothAmount").value = 0.5;
+            document.getElementById("bumpiness").value = 0.01;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "44EE44";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeMountains(){
+            document.getElementById("hilliness").value = 1.25 * SIZE;
+            document.getElementById("smoothIterations").value = 12;
+            document.getElementById("smoothAmount").value = 0.075;
+            document.getElementById("bumpiness").value = 0.75;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "658565";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeRocky(){
+            document.getElementById("hilliness").value = 0.40 * SIZE;
+            document.getElementById("smoothIterations").value = 1;
+            document.getElementById("smoothAmount").value = 0.3;
+            document.getElementById("bumpiness").value = 2;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "808487";
+            }
+            document.getElementById("elavation").value = 10;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeSandbar(){
+            document.getElementById("hilliness").value = 0.3 * SIZE;
+            document.getElementById("smoothIterations").value = 5;
+            document.getElementById("smoothAmount").value = 0.8;
+            document.getElementById("bumpiness").value = 0.7;
+            document.getElementById("cap").checked = false;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "c2b280";
+            }
+            document.getElementById("elavation").value = 0;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeIceSpikes(){
+            document.getElementById("hilliness").value = 0.4 * SIZE;
+            document.getElementById("smoothIterations").value = 12;
+            document.getElementById("smoothAmount").value = 0.15;
+            document.getElementById("bumpiness").value = 0;
+            document.getElementById("cap").checked = true;
+            document.getElementById("capAt").value = -8;
+            document.getElementById("capPercent").value = -400;
+            document.getElementById("bumpiness").value = 2;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = -15;
+            document.getElementById("floorPercent").value = 100;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "F0F8FE";
+            }
+            document.getElementById("elavation").value = -5;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeMesa(){
+            document.getElementById("hilliness").value = 4 * SIZE;
+            document.getElementById("smoothIterations").value = 8;
+            document.getElementById("smoothAmount").value = 0.8;
+            document.getElementById("bumpiness").value = 0;
+            document.getElementById("cap").checked = true;
+            document.getElementById("capAt").value = 60;
+            document.getElementById("capPercent").value = 85;
+            document.getElementById("bumpiness").value = 0.05;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = 20;
+            document.getElementById("floorPercent").value = 90;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "8a403a";
+            }
+            document.getElementById("elavation").value = 25;
+            regenerate();
+            setColorButton()
+        }
+
+        function setAttributeCrater(){
+            document.getElementById("hilliness").value = 0.4 * SIZE;
+            document.getElementById("smoothIterations").value = 15;
+            document.getElementById("smoothAmount").value = 0.5;
+            document.getElementById("bumpiness").value = 0.05;
+            document.getElementById("cap").checked = true;
+            document.getElementById("capAt").value = 32;
+            document.getElementById("capPercent").value = 50;
+            document.getElementById("floor").checked = true;
+            document.getElementById("floorAt").value = 25;
+            document.getElementById("floorPercent").value = -200;   
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = "645e56";
+            }
+            document.getElementById("elavation").value = 30;
+            regenerate();
+            setColorButton()
+        }
+        
+        function setAttributeRandom(){
+            document.getElementById("hilliness").value = Math.pow(Math.random() * 1.7 + 0.15, 3) * SIZE;
+            document.getElementById("smoothIterations").value = Math.pow(Math.random() * 2, 5);
+            document.getElementById("smoothAmount").value = Math.pow(Math.random() * 1 + 0.1, 2.5);
+            document.getElementById("bumpiness").value = Math.pow(Math.random() * 1.1, 8);
+            if(Math.random() * 4 > 3){
+                document.getElementById("cap").checked = true
+            } else {
+                document.getElementById("cap").checked = false
+            }
+            if(Math.random() * 4 > 3){
+                document.getElementById("floor").checked = false
+
+            } else if(Math.random() * 4 > 3) {
+                document.getElementById("floor").checked = true
+                document.getElementById("floorAt").value = Math.pow(Math.random() * 3.1, 3.8) - 20;
+                document.getElementById("floorPercent").value = Math.pow((Math.random() * 8 - 3), 3);   
+            } else {
+                document.getElementById("floor").checked = true;
+                document.getElementById("floorAt").value = -15;
+                document.getElementById("floorPercent").value = 100;   
+            }
+
+            document.getElementById("capAt").value = Math.pow(Math.random() * 5, 3);
+            if(Math.random() * 3 > 1 ){
+                document.getElementById("capPercent").value = Math.random() * 90; + 20
+            } else if(Math.random() * 2 > 1){
+                document.getElementById("capPercent").value = Math.random() * 350; + 80
+            } else {
+                document.getElementById("capPercent").value = Math.random() * -130;
+            }
+
+            if(document.getElementById("colorLock").checked === false){
+                document.getElementById("color").value = getRandomColor();
+            }
+            document.getElementById("elavation").value = Math.random() * 30;
+            regenerate();
+            setColorButton()
+        }
+
+        function getRandomColor(){
+            var letters = '0123456789ABCDEF';
+            var color = '';
+            for (var i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        document.addEventListener("keyup", function(event) {
+            if (event.keyCode === 13) {
+                regenerate();
+            }
+        });
+
+        function exportAsArray(){
+            console.log(arrayToPrint)
+        }
+
+        function exportAsThreeJS(){
+            console.log(threeJSToPrint)
+        }
+
+		animate();
+        
+	</script>
+</html>
